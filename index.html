@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reconocimiento de Gestos - Armada</title>
+
+    <!-- Librerías de IA para Detección Facial en Vivo (MediaPipe) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url(imagen.png); /* armada nacional */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: rgb(226, 223, 223);
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: rgba(23,42,69,0.75);
+            backdrop-filter: blur(5px);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .header-img {
+            width: 120px;
+            height: auto;
+            background: #1B2A47;
+            border-radius: 0;
+            margin: 0 auto 10px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #0a192f;
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 60%;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #f39c12;
+            color: #0a192f;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 5px;
+            margin-top: 5px;
+        }
+        button:hover {
+            background-color: #e67e22;
+        }
+        .panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(32,58,97,0.65);
+            backdrop-filter: blur(4px);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .btn-bien {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .btn-mal {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .contador-box {
+            font-size: 22px;
+            font-weight: bold;
+            color: #f39c12;
+            margin: 10px 0;
+        }
+        .camara-container {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            max-width: 480px;
+            margin-top: 10px;
+        }
+        video {
+            width: 100%;
+            border-radius: 8px;
+            border: 3px solid #f39c12;
+            background: #000;
+            transform: scaleX(-1); /* Modo espejo */
+        }
+        .estado-alerta {
+            font-size: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #0a192f;
+            border: 2px solid #f39c12;
+            margin-top: 15px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 1. Encabezado e Identidad Institucional -->
+        <img src="escudo.png" alt="Escudo Escuela Naval" class="header-img">
+        <h1>Proyecto: Movimiento y Señales de Gestos</h1>
+        <p>Escuela Naval de Suboficiales ARC "Barranquilla"</p>
+
+        <hr style="border: 0.5px solid #334e68;">
+
+        <!-- 2. Registro de Usuario / Operador -->
+        <div class="panel">
+            <h3>Registro de Operador</h3>
+            <label for="nombreUsuario">Ingrese su nombre de usuario:</label><br>
+            <input type="text" id="nombreUsuario" placeholder="Ej: Operador Naval">
+            <button onclick="guardarUsuario()">Iniciar Sesión</button>
+            <p id="saludoUsuario" style="margin-top: 10px; color: #2ecc71; font-weight: bold;"></p>
+        </div>
+
+        <!-- 3. Cámara en Vivo y Monitoreo con IA -->
+        <div class="panel">
+            <h3>Monitoreo con Cámara en Vivo (IA)</h3>
+            
+            <div class="camara-container">
+                <video id="videoElement" autoplay playsinline></video>
+            </div>
+            <br>
+            <button onclick="iniciarCamaraIA()">Encender Cámara y Detección</button>
+
+            <div style="margin-top: 10px;">
+                <div class="estado-alerta">
+                    Gesto Detectado: <span id="gestoActual" style="color: #f39c12; font-weight: bold;">Cámara Apagada</span>
+                </div><br>
+                <div class="estado-alerta" style="margin-top: 8px; border-color: #3498db;">
+                    Estado Operador: <span id="alertaPersona" style="color: #3498db; font-weight: bold;">Esperando operador...</span>
+                </div>
+            </div>
+
+            <div class="contador-box">
+                Espabilos / Parpadeos Válidos: <span id="contador">0</span>
+            </div>
+        </div>
+
+        <!-- 4. Panel de Validación -->
+        <div class="panel">
+            <h3>Validación del Sistema</h3>
+            <p>¿Es correcta la detección actual?</p>
+            <button class="btn-bien" onclick="calificar('Bien')">✔ Está Bien</button>
+            <button class="btn-mal" onclick="calificar('Mal')">✖ Está Mal (Corregir)</button>
+            <p id="mensajeValidacion" style="margin-top: 10px; font-weight: bold;"></p>
+        </div>
+    </div>
+
+    <script>
+        let totalEspabilos = 0;
+        let ojosCerrados = false;
+        let tiempoOjosCerrados = 0;
+        let fotogramasOjoCerrado = 0; // Filtro para evitar falsos positivos por parpadeos falsos
+
+        // Variables para detección de cambio de persona
+        let operadorRegistradoFirma = null; 
+        let framesCambioPersona = 0;
+
+        function guardarUsuario() {
+            const nombre = document.getElementById('nombreUsuario').value;
+            const saludo = document.getElementById('saludoUsuario');
+            
+            if(nombre.trim() !== "") {
+                saludo.textContent = "Bienvenido, Operador: " + nombre;
+                saludo.style.color = "#2ecc71";
+                operadorRegistradoFirma = null; // Reiniciar firma para capturar al nuevo operador al iniciar cámara
+            } else {
+                saludo.textContent = "Por favor ingrese un nombre válido.";
+                saludo.style.color = "#e74c3c";
+            }
+        }
+
+        function calificar(estado) {
+            const validacion = document.getElementById('mensajeValidacion');
+            if(estado === 'Bien') {
+                validacion.textContent = "¡Registrado! Detección correcta confirmada.";
+                validacion.style.color = "#2ecc71";
+            } else {
+                validacion.textContent = "Alerta: Detección marcada como errónea. Procediendo a reajustar...";
+                validacion.style.color = "#e74c3c";
+            }
+        }
+
+        // Configuración e Inicio de MediaPipe Face Mesh
+        async function iniciarCamaraIA() {
+            const videoElement = document.getElementById('videoElement');
+            const gestoText = document.getElementById('gestoActual');
+
+            gestoText.textContent = "Cargando modelo de IA...";
+
+            const faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
+
+            faceMesh.onResults(procesarRostro);
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await faceMesh.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480
+            });
+
+            camera.start();
+            gestoText.textContent = "Analizando rostro...";
+        }
+
+        // Lógica de lectura de puntos faciales
+        function procesarRostro(results) {
+            const gestoText = document.getElementById('gestoActual');
+            const contadorText = document.getElementById('contador');
+            const alertaPersonaText = document.getElementById('alertaPersona');
+
+            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+                gestoText.textContent = "Buscando rostro...";
+                gestoText.style.color = "#f39c12";
+                alertaPersonaText.textContent = "⚠️ Ninguna persona frente a la cámara";
+                alertaPersonaText.style.color = "#e74c3c";
+                return;
+            }
+
+            const landmarks = results.multiFaceLandmarks[0];
+
+            // --- 1. DETECCIÓN DE CAMBIO DE PERSONA ---
+            // Creamos una "firma" geométrica básica basada en la distancia entre los pómulos/ojos externos (puntos 33 y 263) y la barbilla (punto 152)
+            const anchoRostro = Math.abs(landmarks[33].x - landmarks[263].x);
+            const altoRostro = Math.abs(landmarks[10].y - landmarks[152].y);
+            const proporcionRostroActual = anchoRostro / altoRostro;
+
+            if (operadorRegistradoFirma === null) {
+                // Registrar la firma inicial del operador actual
+                operadorRegistradoFirma = proporcionRostroActual;
+                alertaPersonaText.textContent = "✔ Operador Verificado (Principal)";
+                alertaPersonaText.style.color = "#2ecc71";
+            } else {
+                // Comparamos con una tolerancia del 12% de diferencia en la proporción facial
+                const diferenciaPersona = Math.abs(proporcionRostroActual - operadorRegistradoFirma);
+                if (diferenciaPersona > 0.12) {
+                    framesCambioPersona++;
+                    if (framesCambioPersona > 15) { // Evita falsos positivos por inclinaciones leves de cabeza
+                        alertaPersonaText.textContent = "🚨 ¡ATENCIÓN: CAMBIO DE PERSONA DETECTADO!";
+                        alertaPersonaText.style.color = "#e74c3c";
+                    }
+                } else {
+                    if (framesCambioPersona > 0) framesCambioPersona--;
+                    if (framesCambioPersona === 0) {
+                        alertaPersonaText.textContent = "✔ Operador Autorizado en Cámara";
+                        alertaPersonaText.style.color = "#2ecc71";
+                    }
+                }
+            }
+
+            // --- 2. FILTRO ESTRICTO DE PARPADEOS (Evita falsos positivos) ---
+            const distOjoIzquierdo = Math.abs(landmarks[159].y - landmarks[145].y);
+            const distOjoDerecho = Math.abs(landmarks[386].y - landmarks[374].y);
+            
+            // Redujimos el umbral a 0.012 (más cerrado) y exigimos que el cierre dure al menos 2 fotogramas seguidos
+            const ojosCerradosAhora = (distOjoIzquierdo < 0.012 && distOjoDerecho < 0.012);
+
+            if (ojosCerradosAhora) {
+                fotogramasOjoCerrado++;
+                if (fotogramasOjoCerrado >= 2 && !ojosCerrados) {
+                    ojosCerrados = true;
+                    totalEspabilos++;
+                    contadorText.textContent = totalEspabilos;
+                }
+                tiempoOjosCerrados++;
+            } else {
+                fotogramasOjoCerrado = 0;
+                ojosCerrados = false;
+                tiempoOjosCerrados = 0;
+            }
+
+            // 3. Medición de apertura de la boca (bostezo)
+            const aperturaBoca = Math.abs(landmarks[13].y - landmarks[14].y);
+
+            // 4. Medición de comisuras de la boca (tristeza)
+            const alturaPromedioComisuras = (landmarks[61].y + landmarks[291].y) / 2;
+            const comisurasBoca = landmarks[14].y - alturaPromedioComisuras; 
+
+            // EVALUACIÓN DE GESTOS EN ORDEN DE PRIORIDAD
+            if (tiempoOjosCerrados > 15) {
+                gestoText.textContent = "😴 SI TENGO SUEÑO (Durmiéndose)";
+                gestoText.style.color = "#e74c3c";
+            } 
+            else if (aperturaBoca > 0.08) {
+                gestoText.textContent = "🥱 SI TENGO HAMBRE (Bostezo)";
+                gestoText.style.color = "#f39c12";
+            } 
+            else if (comisurasBoca < -0.015) {
+                gestoText.textContent = "😢 ROSTRO TRISTE / DECAÍDO";
+                gestoText.style.color = "#3498db";
+            } 
+            else {
+                gestoText.textContent = "😊 Rostro Normal / Atento";
+                gestoText.style.color = "#2ecc71";
+            }
+        }
+    </script>
+
+</body>
+</html>
