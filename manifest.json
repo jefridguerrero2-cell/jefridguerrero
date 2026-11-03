@@ -1,13 +1,25 @@
 {
-  "background_color": "#ffffff",
-  "dir": "ltr",
-  "display": "standalone",
-  "name": "jefridguerrero2",
-  "orientation": "any",
-  "scope": "/",
   "short_name": "jefridguerrero2",
-  "start_url": "/",
-  "theme_color": "#ffffff",
+  "name": "jefridguerrero2",
+  "description": "Aplicación web para la gestión de gestos faciales",
   "id": "com.jefridguerrero.app",
-  "description": "aplicaion wep para la gestion de gestos faciales"
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "dir": "ltr",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
 }
